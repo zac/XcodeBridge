@@ -1,0 +1,21 @@
+# macOS
+.DS_Store
+
+# SwiftPM
+.build/
+
+# Xcode user/local state
+DerivedData/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcuserstate
+
+# Build products
+build/
+
+# Local env / overrides
+.env
+.env.*
+
+# Reference project used for research only
+rmcp-mux-main/
