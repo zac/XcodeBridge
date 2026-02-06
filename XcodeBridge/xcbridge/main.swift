@@ -345,7 +345,6 @@ final class BridgeServer {
     private var backendOutSource: DispatchSourceRead?
     private var backendErrSource: DispatchSourceRead?
     private let backendMessageBuffer = MessageBuffer()
-    private let serverFraming: FrameStyle
 
     private var clients: [Int: ClientConnection] = [:]
     private var clientStates: [Int: ClientState] = [:]
@@ -360,12 +359,9 @@ final class BridgeServer {
     private let handshakeTimeout: TimeInterval = 10
     private let requestTimeout: TimeInterval = 30
     private var timeoutTimer: DispatchSourceTimer?
-    private let protocolVersionOverride: String?
     private let autoDowngradeProtocolVersion = "2025-06-18"
 
-    init(serverFraming: FrameStyle, protocolVersionOverride: String?) throws {
-        self.serverFraming = serverFraming
-        self.protocolVersionOverride = protocolVersionOverride
+    init() throws {
         var env = ProcessInfo.processInfo.environment
         var pidSource = "env"
         let currentPid = env["MCP_XCODE_PID"]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -381,8 +377,7 @@ final class BridgeServer {
             "event": "backend_env",
             "xcode_pid": env["MCP_XCODE_PID"] ?? "",
             "xcode_session": env["MCP_XCODE_SESSION_ID"] ?? "",
-            "server_framing": serverFraming == .contentLength ? "content-length" : "line",
-            "protocol_override": protocolVersionOverride ?? "",
+            "server_framing": "line",
             "xcode_pid_source": pidSource
         ])
         let process = Process()
@@ -560,21 +555,9 @@ final class BridgeServer {
 
     private func handleInitialize(clientId: Int, localId: Any, msg: [String: Any]) {
         var adjusted = msg
-        if let override = protocolVersionOverride {
-            if var params = adjusted["params"] as? [String: Any] {
-                let current = params["protocolVersion"] as? String
-                if current != override {
-                    params["protocolVersion"] = override
-                    adjusted["params"] = params
-                    logMux(["event": "protocol_override", "from": current ?? "", "to": override])
-                }
-            } else {
-                adjusted["params"] = ["protocolVersion": override]
-                logMux(["event": "protocol_override", "from": "", "to": override])
-            }
-        } else if var params = adjusted["params"] as? [String: Any],
-                  let current = params["protocolVersion"] as? String,
-                  isProtocolVersion(current, greaterThan: autoDowngradeProtocolVersion) {
+        if var params = adjusted["params"] as? [String: Any],
+           let current = params["protocolVersion"] as? String,
+           isProtocolVersion(current, greaterThan: autoDowngradeProtocolVersion) {
             params["protocolVersion"] = autoDowngradeProtocolVersion
             adjusted["params"] = params
             logMux(["event": "protocol_downgrade", "from": current, "to": autoDowngradeProtocolVersion])
@@ -710,7 +693,7 @@ final class BridgeServer {
 
     private func sendToServer(_ msg: [String: Any]) {
         guard let data = encodeJSONLine(msg) else { return }
-        let framed = frameData(data, style: serverFraming)
+        let framed = frameData(data, style: .line)
         _ = writeAll(fd: backendInFD, data: framed)
         logMuxData(event: "server_out_bytes", data: framed)
         if let raw = String(data: data, encoding: .utf8) {
@@ -899,15 +882,13 @@ enum Mode {
 func printHelp() {
     let help = """
     Usage:
-      xcode-bridge serve [--socket <path>] [--server-framing <line|content-length>] [--protocol-version <version>]
+      xcode-bridge serve [--socket <path>]
       xcode-bridge connect [--socket <path>]
       xcode-bridge --version
       xcode-bridge --help
 
     Environment:
       XCODE_BRIDGE_SOCKET  Override the socket path
-      XCODE_BRIDGE_SERVER_FRAMING  line|content-length
-      XCODE_BRIDGE_PROTOCOL_VERSION  Override initialize.protocolVersion
 
     Notes:
       - This bridge multiplexes MCP JSON-RPC messages across clients.
@@ -919,20 +900,6 @@ func printHelp() {
 var args = Array(CommandLine.arguments.dropFirst())
 var mode: Mode = .connect
 var socketArg: String?
-var serverFraming: FrameStyle = .line
-var protocolVersionOverride: String?
-
-if let envFraming = ProcessInfo.processInfo.environment["XCODE_BRIDGE_SERVER_FRAMING"]?.lowercased() {
-    if envFraming == "content-length" {
-        serverFraming = .contentLength
-    } else if envFraming == "line" {
-        serverFraming = .line
-    }
-}
-if let envProtocol = ProcessInfo.processInfo.environment["XCODE_BRIDGE_PROTOCOL_VERSION"]?.trimmingCharacters(in: .whitespacesAndNewlines),
-   !envProtocol.isEmpty {
-    protocolVersionOverride = envProtocol
-}
 
 if args.contains("--version") || args.contains("-v") {
     mode = .version
@@ -986,50 +953,6 @@ while i < args.count {
         i += 1
         continue
     }
-    if arg == "--server-framing" {
-        if i + 1 >= args.count {
-            eprint("xcode-bridge: missing value for --server-framing")
-            exit(2)
-        }
-        let value = args[i + 1].lowercased()
-        if value == "content-length" {
-            serverFraming = .contentLength
-        } else if value == "line" {
-            serverFraming = .line
-        } else {
-            eprint("xcode-bridge: invalid value for --server-framing: \(args[i + 1])")
-            exit(2)
-        }
-        i += 2
-        continue
-    }
-    if arg.hasPrefix("--server-framing=") {
-        let value = arg.dropFirst("--server-framing=".count).lowercased()
-        if value == "content-length" {
-            serverFraming = .contentLength
-        } else if value == "line" {
-            serverFraming = .line
-        } else {
-            eprint("xcode-bridge: invalid value for --server-framing")
-            exit(2)
-        }
-        i += 1
-        continue
-    }
-    if arg == "--protocol-version" {
-        if i + 1 >= args.count {
-            eprint("xcode-bridge: missing value for --protocol-version")
-            exit(2)
-        }
-        protocolVersionOverride = args[i + 1]
-        i += 2
-        continue
-    }
-    if arg.hasPrefix("--protocol-version=") {
-        protocolVersionOverride = String(arg.dropFirst("--protocol-version=".count))
-        i += 1
-        continue
-    }
     eprint("xcode-bridge: unknown argument \(arg)")
     exit(2)
 }
@@ -1041,11 +964,11 @@ case .help:
 case .version:
     print(cliVersion)
     exit(0)
-    case .serve:
-        let socketPath = resolvedSocketPath(from: socketArg)
-        do {
-            let listenerFD = try createListeningSocket(path: socketPath)
-        let bridge = try BridgeServer(serverFraming: serverFraming, protocolVersionOverride: protocolVersionOverride)
+case .serve:
+    let socketPath = resolvedSocketPath(from: socketArg)
+    do {
+        let listenerFD = try createListeningSocket(path: socketPath)
+        let bridge = try BridgeServer()
 
         DispatchQueue.global().async {
             while true {
@@ -1059,9 +982,7 @@ case .version:
             }
         }
 
-        let framingLabel = serverFraming == .contentLength ? "content-length" : "line"
-        let protoLabel = protocolVersionOverride ?? "none"
-        eprint("xcode-bridge: serving on \(socketPath) (server framing: \(framingLabel), protocol override: \(protoLabel))")
+        eprint("xcode-bridge: serving on \(socketPath)")
         dispatchMain()
     } catch {
         eprint("xcode-bridge: failed to start server: \(error)")

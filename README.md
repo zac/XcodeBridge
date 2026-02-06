@@ -2,6 +2,14 @@
 
 `XcodeBridge` is a macOS menu bar app plus a CLI (`xcbridge`) that sits in front of Xcode's MCP bridge (`xcrun mcpbridge`).
 
+## Purpose
+
+This project exists to work around the repeated Xcode permission popups for MCP connections.
+
+In practice, Xcode can prompt for approval per connecting process. That becomes a blocker for tools like the Codex app, which may spawn many `codex` CLI processes during one session. MCP access can stall until each process is approved.
+
+`XcodeBridge` keeps one long-running bridge process connected to Xcode MCP, then lets other local clients connect through that bridge.
+
 It provides:
 
 - A persistent local Unix socket for MCP clients
@@ -72,10 +80,6 @@ xcbridge connect --socket ~/tmp/xcode-bridge.sock
 ## Environment Variables
 
 - `XCODE_BRIDGE_SOCKET`: override socket path
-- `XCODE_BRIDGE_SERVER_FRAMING`: `line` or `content-length`
-- `XCODE_BRIDGE_PROTOCOL_VERSION`: override `initialize.params.protocolVersion`
-- `MCP_XCODE_PID`: optional explicit Xcode PID passed through to `xcrun mcpbridge`
-- `MCP_XCODE_SESSION_ID`: optional Xcode session UUID passed through
 
 ## MCP Client Integration
 
