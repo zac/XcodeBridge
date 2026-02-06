@@ -217,7 +217,7 @@ final class BridgeController: @unchecked Sendable {
         }
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
-        pasteboard.setString(command, forType: .string)
+        pasteboard.setString("\(command) connect", forType: .string)
         lastMessage = "Copied CLI path."
     }
 
