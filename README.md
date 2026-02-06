@@ -10,6 +10,8 @@ It provides:
 - A log window for live request/response debugging
 - An embedded CLI binary inside the app bundle
 
+There is no CLI install step. `/usr/local/bin/xcbridge` is not used.
+
 ## Project Layout
 
 - `XcodeBridge/XcodeBridge`: SwiftUI menu bar app
@@ -35,6 +37,8 @@ From the menu bar extra:
 - `Start Bridge` / `Stop Bridge`
 - `Copy MCP Command` (copies embedded `xcbridge` binary path)
 - `Open Log Window`
+
+Use `Copy MCP Command` each time after a rebuild, since the app-bundle path can change with DerivedData.
 
 ### CLI target directly
 
