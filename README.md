@@ -18,8 +18,6 @@ It provides:
 - A log window for live request/response debugging
 - An embedded CLI binary inside the app bundle
 
-There is no CLI install step. `/usr/local/bin/xcbridge` is not used.
-
 ## Project Layout
 
 - `XcodeBridge/XcodeBridge`: SwiftUI menu bar app
