@@ -8,7 +8,7 @@ It provides:
 - A single long-running backend connection to Xcode MCP
 - JSON-RPC multiplexing across multiple local clients
 - A log window for live request/response debugging
-- One-click CLI install to `/usr/local/bin/xcbridge`
+- An embedded CLI binary inside the app bundle
 
 ## Project Layout
 
@@ -33,9 +33,8 @@ It provides:
 From the menu bar extra:
 
 - `Start Bridge` / `Stop Bridge`
-- `Copy MCP Command` (copies active CLI path)
+- `Copy MCP Command` (copies embedded `xcbridge` binary path)
 - `Open Log Window`
-- `Install CLI...` or `Upgrade CLI...` (installs to `/usr/local/bin/xcbridge`)
 
 ### CLI target directly
 
@@ -44,8 +43,6 @@ Build the CLI scheme:
 ```bash
 xcodebuild -project XcodeBridge/XcodeBridge.xcodeproj -scheme xcbridge -configuration Debug build
 ```
-
-Or install using the app menu as above.
 
 ## CLI Usage
 
@@ -78,11 +75,11 @@ xcbridge connect --socket ~/tmp/xcode-bridge.sock
 
 ## MCP Client Integration
 
-Point your MCP client command to `xcbridge connect` (not `xcrun mcpbridge` directly):
+Use the path copied by `Copy MCP Command`, and point your MCP client command to `connect` (not `xcrun mcpbridge` directly):
 
 ```json
 {
-  "command": "xcbridge",
+  "command": "/path/to/XcodeBridge.app/Contents/Resources/xcbridge",
   "args": ["connect"]
 }
 ```

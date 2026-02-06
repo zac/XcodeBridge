@@ -16,7 +16,6 @@ struct XcodeBridgeApp: App {
     var body: some Scene {
         MenuBarExtra("XcodeBridge", systemImage: bridge.statusSymbol) {
             Text("Status: \(bridge.statusText)")
-            Text(bridge.cliStatusText)
             Divider()
             Button(bridge.isRunning ? "Stop Bridge" : "Start Bridge") {
                 bridge.toggle()
@@ -33,11 +32,6 @@ struct XcodeBridgeApp: App {
                 }
             }
             Divider()
-            if bridge.canInstallAction {
-                Button(bridge.installActionTitle) {
-                    bridge.installOrUpgradeCLI()
-                }
-            }
             Button("Quit XcodeBridge") {
                 NSApplication.shared.terminate(nil)
             }
